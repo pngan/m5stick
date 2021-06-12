@@ -11,65 +11,33 @@ from machine import Pin
 import os
 from easyIO import *
 
-MotionState = {}
-class MoveForward():
-    def run(self):
-        while True:
-            distance = sensor.distance_mm()
-            label1.setText(str(distance))
-            if distance < 200:
-                duty = 0
-            else:
-                duty = 70
-            PWM_left.duty(duty)
-            PWM_right.duty(duty+5)
-            
-            wait_ms(100)
 
-            return "LookLeft"
+##############################################################################
+# Configuration
 
-MotionState["MoveForward"] = MoveForward()
-
-class LookLeft():
-    def run(self):
-        while True:
-            # Turn sensor left
-            # if clear
-            #     return "TurnLeft"
-            # else
-            #     return "LookRight"
-
-MotionState["LookLeft"] = LookLeft()
-
-class LookRight():
-    def run(self):
-        while True:
-            # Turn sensor right
-            # if clear
-            #     return "TurnRight"
-            # else
-            #     return "Stop"
-
-MotionState["LookRight"] = LookRight()
+clearance_threshold_mm = 220
+duty_percentage_forward = 70
+duty_percentage_stop = 0
+pin_motor_left = 26
+pin_motor_right = 5
+pin_motor_servo = 17
+ping_ultrasound_trigger = 21
+ping_ultrasound_echo = 22
+servo_centre = 6.5
+servo_right = 4
+servo_left = 11
 
 
-class TurnLeft():
-    def run(self):
-        while True:
-            # Turn robot left
-            # return "MoveForward"     
 
-MotionState["TurnLeft"] = TurnLeft()
+########################################################################
+# Set up ui
 
+setScreenColor(0x000000)
+label0 = M5TextBox(16, 85, "Text", lcd.FONT_DejaVu40, 0xFFFFFF, rotate=0)
+label1 = M5TextBox(16, 156, "Text", lcd.FONT_DejaVu40, 0xFFFFFF, rotate=0)
+label2 = M5TextBox(180, 15, "Text", lcd.FONT_DejaVu18, 0xFFFFFF, rotate=0)
+label0.setText('Distance')
 
-class TurnRight():
-    def run(self):
-        while True:
-            # Turn robot right
-            # return "MoveForward"        
-
-
-MotionState["TurnRight"] = TurnRight()
 
 ######################################################################
 class HCSR04:
@@ -141,31 +109,133 @@ class HCSR04:
         cms = (pulse_time / 2) / 29.1
         return cms
         
-########################################################################
-# Set up ui
-
-setScreenColor(0x000000)
-label0 = M5TextBox(16, 85, "Text", lcd.FONT_DejaVu40, 0xFFFFFF, rotate=0)
-label1 = M5TextBox(16, 156, "Text", lcd.FONT_DejaVu40, 0xFFFFFF, rotate=0)
-label2 = M5TextBox(180, 15, "Text", lcd.FONT_DejaVu18, 0xFFFFFF, rotate=0)
-label0.setText('Distance')
 
 # Set up ultrasound
-sensor = HCSR04(trigger_pin=21, echo_pin=22,echo_timeout_us=1000000)
+sensor = HCSR04(trigger_pin=ping_ultrasound_trigger, echo_pin=ping_ultrasound_echo, echo_timeout_us=1000000)
+
 
 # Set up PWM
-left = machine.Pin(26, mode=machine.Pin.OUT, pull=machine.Pin.PULL_UP)
-right = machine.Pin(5, mode=machine.Pin.OUT, pull=machine.Pin.PULL_UP)
-PWM_left = machine.PWM(26, freq=1000, duty=0, timer=0)
-PWM_right = machine.PWM(5, freq=1000, duty=0, timer=0)
+left = machine.Pin(pin_motor_left, mode=machine.Pin.OUT, pull=machine.Pin.PULL_UP)
+right = machine.Pin(pin_motor_right, mode=machine.Pin.OUT, pull=machine.Pin.PULL_UP)
+PWM_left = machine.PWM(pin_motor_left, freq=1000, duty=0, timer=0)
+PWM_right = machine.PWM(pin_motor_right, freq=1000, duty=0, timer=0)
+PWM_servo = machine.PWM(pin_motor_servo, freq=50, duty=0, timer=0)
 
 
-# Set up state machine
 
+class ClearanceChecker():
+    def isClear(self):
+        distance = sensor.distance_mm()
+        label1.setText(str(distance))
+        return distance > clearance_threshold_mm
+
+
+################################################################################
+# Motion State Machine
+
+MotionState = {}
+class MoveForward():
+    def run(self):
+        PWM_left.duty(duty_percentage_forward)
+        PWM_right.duty(duty_percentage_forward+5)
+        clearance = ClearanceChecker()
+        while clearance.isClear() is True:
+          wait_ms(50)
+        Stop()
+        return "LookLeft"
+MotionState["MoveForward"] = MoveForward()
+
+
+class TurnLeft():
+    def run(self):
+        PWM_left.duty(0)
+        PWM_right.duty(duty_percentage_forward+5)
+        wait_ms(500)
+        Stop()
+        return "LookAhead"    
+MotionState["TurnLeft"] = TurnLeft()
+
+
+class TurnRight():
+    def run(self):
+        PWM_left.duty(duty_percentage_forward)
+        PWM_right.duty(0)
+        wait_ms(500)
+        Stop()
+        return "LookAhead"      
+MotionState["TurnRight"] = TurnRight()
+
+
+class LookLeft():
+    def run(self):
+        PWM_servo.duty(servo_left)
+        wait_ms(2000)
+        if (ClearanceChecker().isClear() is True):
+          return "TurnLeft"
+        else:
+          return "LookRight"
+MotionState["LookLeft"] = LookLeft()
+
+
+class LookRight():
+    def run(self):
+        PWM_servo.duty(servo_right)
+        wait_ms(2000)
+        if (ClearanceChecker().isClear() is True):
+            return "TurnRight"
+        else:
+            return "Stop"
+MotionState["LookRight"] = LookRight()
+
+
+class LookAhead():
+    def run(self):
+      PWM_servo.duty(servo_centre)
+      wait_ms(300)
+      if (ClearanceChecker().isClear() is True):
+        return "MoveForward"
+      else:
+        return "Stop"
+      
+MotionState["LookAhead"] = LookAhead()
+
+
+############################################################################
+# Reset state machine
+
+def buttonA_wasPressed():
+    RunStateMachine()
+    pass
+btnA.wasPressed(buttonA_wasPressed)
+
+
+############################################################################
+# Stop state machine
+
+def buttonB_wasPressed():
+  nextState = "Stop"
+  pass
+btnB.wasPressed(buttonB_wasPressed)
+
+
+############################################################################
+
+
+def Stop():
+  PWM_left.duty(duty_percentage_stop)
+  PWM_right.duty(duty_percentage_stop)
+  PWM_servo.duty(servo_centre)
+        
+def RunStateMachine():
+    nextState = "LookAhead"
+    while nextState is not "Stop":
+      label2.setText(nextState)
+      motionState = MotionState[nextState]
+      nextState = motionState.run()
+    Stop()
 
 # Acknowledge download
 speaker.tone(200, 20)
 
-
-
-
+############################################################################
+# Run state machine
