@@ -15,14 +15,19 @@ from easyIO import *
 ##############################################################################
 # Configuration
 
-clearance_threshold_mm = 220
-duty_percentage_forward = 70
+# Pins
+pin_motor_left = 32 #26 grey
+pin_motor_right = 33 #5 purple
+pin_motor_servo = 0 #17 blue
+pin_ultrasound_trigger = 26 #21
+pin_ultrasound_echo = 36 #22
+
+
+clearance_threshold_mm = 200
+duty_percentage_forward = 60
 duty_percentage_stop = 0
-pin_motor_left = 26
-pin_motor_right = 5
-pin_motor_servo = 17
-ping_ultrasound_trigger = 21
-ping_ultrasound_echo = 22
+
+
 servo_centre = 6.5
 servo_right = 4
 servo_left = 11
@@ -32,11 +37,9 @@ servo_left = 11
 ########################################################################
 # Set up ui
 
-setScreenColor(0x000000)
-label0 = M5TextBox(16, 85, "Text", lcd.FONT_DejaVu40, 0xFFFFFF, rotate=0)
-label1 = M5TextBox(16, 156, "Text", lcd.FONT_DejaVu40, 0xFFFFFF, rotate=0)
-label2 = M5TextBox(180, 15, "Text", lcd.FONT_DejaVu18, 0xFFFFFF, rotate=0)
-label0.setText('Distance')
+setScreenColor(0xff0000)
+label1 = M5TextBox(0, 30, "Text", lcd.FONT_DejaVu40, 0xFFFFFF, rotate=0)
+label2 = M5TextBox(0, 60, "Text", lcd.FONT_DejaVu18, 0xFFFFFF, rotate=0)
 
 
 ######################################################################
@@ -111,16 +114,15 @@ class HCSR04:
         
 
 # Set up ultrasound
-sensor = HCSR04(trigger_pin=ping_ultrasound_trigger, echo_pin=ping_ultrasound_echo, echo_timeout_us=1000000)
+sensor = HCSR04(trigger_pin=pin_ultrasound_trigger, echo_pin=pin_ultrasound_echo, echo_timeout_us=1000000)
 
 
 # Set up PWM
 left = machine.Pin(pin_motor_left, mode=machine.Pin.OUT, pull=machine.Pin.PULL_UP)
 right = machine.Pin(pin_motor_right, mode=machine.Pin.OUT, pull=machine.Pin.PULL_UP)
-PWM_left = machine.PWM(pin_motor_left, freq=1000, duty=0, timer=0)
-PWM_right = machine.PWM(pin_motor_right, freq=1000, duty=0, timer=0)
+PWM_left = machine.PWM(pin_motor_left, freq=20000, duty=0, timer=0)
+PWM_right = machine.PWM(pin_motor_right, freq=20000, duty=0, timer=0)
 PWM_servo = machine.PWM(pin_motor_servo, freq=50, duty=0, timer=0)
-
 
 
 class ClearanceChecker():
@@ -200,6 +202,13 @@ class LookAhead():
 MotionState["LookAhead"] = LookAhead()
 
 
+class Start():
+    def run(self):
+        return "LookAhead"
+      
+MotionState["Start"] = Start()
+
+
 ############################################################################
 # Reset state machine
 
@@ -214,6 +223,9 @@ btnA.wasPressed(buttonA_wasPressed)
 
 def buttonB_wasPressed():
   nextState = "Stop"
+  PWM_left.deinit()
+  PWM_right.deinit()
+  PWM_servo.deinit()
   pass
 btnB.wasPressed(buttonB_wasPressed)
 
@@ -227,7 +239,7 @@ def Stop():
   PWM_servo.duty(servo_centre)
         
 def RunStateMachine():
-    nextState = "LookAhead"
+    nextState = "Start"
     while nextState is not "Stop":
       label2.setText(nextState)
       motionState = MotionState[nextState]
@@ -235,7 +247,8 @@ def RunStateMachine():
     Stop()
 
 # Acknowledge download
-speaker.tone(200, 20)
+
+#setScreenColor(0xff0000)
 
 ############################################################################
 # Run state machine
