@@ -15,14 +15,18 @@ from easyIO import *
 ##############################################################################
 # Configuration
 
-clearance_threshold_mm = 220
-duty_percentage_forward = 70
-duty_percentage_stop = 0
+# Pins
 pin_motor_left = 26
 pin_motor_right = 5
 pin_motor_servo = 17
-ping_ultrasound_trigger = 21
-ping_ultrasound_echo = 22
+pin_ultrasound_trigger = 21
+pin_ultrasound_echo = 22
+
+clearance_threshold_mm = 220
+duty_percentage_forward = 70
+duty_percentage_stop = 0
+
+
 servo_centre = 6.5
 servo_right = 4
 servo_left = 11
@@ -111,7 +115,7 @@ class HCSR04:
         
 
 # Set up ultrasound
-sensor = HCSR04(trigger_pin=ping_ultrasound_trigger, echo_pin=ping_ultrasound_echo, echo_timeout_us=1000000)
+sensor = HCSR04(trigger_pin=pin_ultrasound_trigger, echo_pin=pin_ultrasound_echo, echo_timeout_us=1000000)
 
 
 # Set up PWM
