@@ -1,6 +1,10 @@
-# Controls robot with 2 PWM drive motors, ultrasound distance sensor
-# Moves forward if clearance ahead of robot is more than 200mm, otherwise stops
+# Controls robot with 2 PWM drive motors, ultrasound distance sensor mounted on servo
+# Moves forward if clearance ahead of robot is more than 200mm,
+# if not clear, looks left, and if clear turns left and continues
+# otherwise, looks right, and if clear turns right and continues,
+# otherwise stops
 
+# Designed for m5stickc 
 
 from m5stack import *
 from m5ui import *
@@ -16,11 +20,11 @@ from easyIO import *
 # Configuration
 
 # Pins
-pin_motor_left = 32 #26 grey
-pin_motor_right = 33 #5 purple
-pin_motor_servo = 0 #17 blue
-pin_ultrasound_trigger = 26 #21
-pin_ultrasound_echo = 36 #22
+pin_motor_left = 32 # grey
+pin_motor_right = 33 # purple
+pin_motor_servo = 0 # blue
+pin_ultrasound_trigger = 26
+pin_ultrasound_echo = 36
 
 
 clearance_threshold_mm = 200
